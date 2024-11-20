@@ -162,5 +162,6 @@ cython_debug/
 #.idea/
 
 # Datasets
-data/**/*.csv
-data/**/*.json
+data
+data1
+.vscode
