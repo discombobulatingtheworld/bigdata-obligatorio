@@ -1,12 +1,10 @@
-from datalake.stats import run_stats
-from datalake.landing import load_datasets
-from dotenv import dotenv_values
+from datalake.stats import stats_for_raw
+from datalake.landing2raw import load_raw
+from datalake.sources2landing import get_sources
 
 def main():
-    config = dotenv_values(".env")
-
-    run_stats()
-    load_datasets(config)
+    get_sources()
+    load_raw()
 
 if __name__ == "__main__":
     main()
