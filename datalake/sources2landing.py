@@ -395,6 +395,10 @@ def _get_old_steamapi_appdetails_appids(mongo_client):
     raw_steamapi_appdetails_ds = get_dataset('raw', 'steamapi_appdetails')
 
     collection = mongo_client[raw_steamapi_appdetails_ds['mongo_details']['db']][raw_steamapi_appdetails_ds['mongo_details']['collection']]
+
+    if collection.count_documents({}) == 0:
+        return []
+
     pipeline = [
         {
             "$project": {
@@ -418,7 +422,6 @@ def _get_old_steamapi_appdetails_appids(mongo_client):
 
     cursor = collection.aggregate(pipeline)
     steam_appids = [doc['steam_appid'] for doc in cursor]
-
     return steam_appids
 
 def _get_old_steamspy_appdetails_appids(mongo_client):
@@ -452,13 +455,19 @@ def _process_files_sources():
 
 def _clear_landing():
     print("{} - Clearing landing zone...".format(datetime.now()))
+
     dirpath = get_zone_dir('landing')
+    if not exists(dirpath):
+        print("{} - Clearing landing zone... Done.".format(datetime.now()))
+        return
+    
     for file in listdir(dirpath):
         try:
             print(f"{datetime.now()} - --Removing {join(dirpath, file)}")
             remove(join(dirpath, file))
         except Exception as e:
             print(f"{datetime.now()} - --Error removing {file}: {e}")
+
     print("{} - Clearing landing zone... Done.".format(datetime.now()))
 
 
