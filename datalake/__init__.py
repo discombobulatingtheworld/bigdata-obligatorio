@@ -18,6 +18,12 @@ def get_mongo_config():
         CONFIG['MONGO_PORT']
     )
 
+def get_elasticsearch_config():
+    return 'http://{}:{}'.format(
+        CONFIG['ELASTICSEARCH_HOST'],
+        CONFIG['ELASTICSEARCH_PORT'],
+    )
+
 def get_proxies():
     proxies = {}
     if 'PROXY_HTTP' in CONFIG and CONFIG['PROXY_HTTP'] != '':
@@ -28,6 +34,9 @@ def get_proxies():
 
 def get_is_debug():
     return 'DEBUG' in CONFIG and CONFIG['DEBUG'] == 'True'
+
+def get_download_sources_step_enable():
+    return 'DOWNLOAD_SOURCES_STEP_ENABLE' in CONFIG and CONFIG['DOWNLOAD_SOURCES_STEP_ENABLE'] == 'True'
 
 def get_worker_count():
     return int(CONFIG['WORKERS'])
@@ -404,7 +413,20 @@ DATASETS = {
             'transformation': None,
         },
     ],
-    'refined': []
+    'refined': [
+        {
+            'name': 'steam_apps',
+            'elasticsearch_index': 'steam_apps_details'
+        },
+        {
+            'name': 'price_history',
+            'elasticsearch_index': 'steam_apps_prices_history'
+        },
+        {
+            'name': 'players_count',
+            'elasticsearch_index': 'steam_apps_players_count_history'
+        }
+    ]
 }
 
 def get_source(name: str):
