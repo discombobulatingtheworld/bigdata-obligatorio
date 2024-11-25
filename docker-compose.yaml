@@ -1,8 +1,8 @@
-name: bigdata_proj
+name: bigdata.proj
 services:
-  bigdata_proj_mongo:
+  bigdata.proj.mongo:
     image: mongodb/mongodb-community-server:latest
-    container_name: bigdata_proj_mongo
+    container_name: bigdata.proj.mongo
     env_file:
       - .env
     environment:
@@ -11,18 +11,18 @@ services:
     ports:
       - ${MONGO_PORT}:27017
     networks:
-      - bigdata_proj_network
+      - bigdata.proj.network
     volumes:
-      - mongo_data:/data/db
-      - mongo_logs:/var/log/mongodb
+      - mongodata:/data/db
+      - mongologs:/var/log/mongodb
 
-  bigdata_proj_mongo_express:
+  bigdata.proj.mongo.express:
     image: library/mongo-express:latest
-    container_name: bigdata_proj_mongo_express
+    container_name: bigdata.proj.mongo.express
     env_file:
       - .env
     environment:
-      ME_CONFIG_MONGODB_SERVER: bigdata_proj_mongo
+      ME_CONFIG_MONGODB_SERVER: bigdata.proj.mongo
       ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USER}
       ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASS}
       ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USER}
@@ -30,13 +30,13 @@ services:
     ports:
       - ${MONGO_EXPRESS_PORT}:8081
     depends_on:
-      - bigdata_proj_mongo
+      - bigdata.proj.mongo
     networks:
-      - bigdata_proj_network
+      - bigdata.proj.network
 
-  bigdata_proj_jupyter:
+  bigdata.proj.jupyter:
     image: jupyter/pyspark-notebook:latest
-    container_name: bigdata_proj_jupyter
+    container_name: bigdata.proj.jupyter
     env_file:
       - .env
     environment:
@@ -45,15 +45,17 @@ services:
     ports:
       - ${JUPYTER_PORT}:8888
     volumes:
-      - jupyter_data:/home/jovyan/work
+      - ${PWD}\data:/home/jovyan/work/data
+      - ${PWD}\datalake:/home/jovyan/work/datalake
+      - ${PWD}\program.py:/home/jovyan/work/program.py
     networks:
-      - bigdata_proj_network
+      - bigdata.proj.network
     command: >
       start-notebook.sh --NotebookApp.token='${JUPYTER_TOKEN}'
 
-  spark-master:
+  bigdata.proj.spark.master:
     image: bitnami/spark:latest
-    container_name: spark-master
+    container_name: bigdata.proj.spark.master
     environment:
       SPARK_MODE: master
       SPARK_RPC_AUTHENTICATION_ENABLED: no
@@ -67,13 +69,13 @@ services:
     ports:
       - ${SPARK_PORT}:8080
     networks:
-      - bigdata_proj_network
+      - bigdata.proj.network
 
-  spark-worker:
+  bigdata.proj.spark.worker:
     image: bitnami/spark:latest
     environment:
       - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_MASTER_URL=spark://bigdata.proj.spark.master:7077
       - SPARK_WORKER_MEMORY=1G
       - SPARK_WORKER_CORES=1
     env_file:
@@ -81,13 +83,13 @@ services:
     deploy:
       replicas: ${SPARK_WORKER_COUNT}
     depends_on:
-      - spark-master
+      - bigdata.proj.spark.master
     networks:
-      - bigdata_proj_network
+      - bigdata.proj.network
 
-  elasticsearch:
+  bigdata.proj.elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.16.0
-    container_name: elasticsearch
+    container_name: bigdata.proj.elasticsearch
     environment:
       discovery.type: single-node
       ES_JAVA_OPTS: -Xms512m -Xmx512m
@@ -96,31 +98,30 @@ services:
     ports:
       - ${ELASTICSEARCH_PORT}:9200
     volumes:
-      - elastic_data:/usr/share/elasticsearch/data
+      - elasticdata:/usr/share/elasticsearch/data
     networks:
-      - bigdata_proj_network
+      - bigdata.proj.network
 
-  kibana:
+  bigdata.proj.kibana:
     image: docker.elastic.co/kibana/kibana:8.15.0
-    container_name: kibana-server5
+    container_name: bigdata.proj.kibana
     environment:
-      - ELASTICSEARCH_HOSTS=${ELASTICSEARCH_HOSTS}
+      - ELASTICSEARCH_HOSTS=http://bigdata.proj.elasticsearch:9200
       - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
       - ELASTICSEARCH_USERNAME=${KIBANA_USERNAME}
       - xpack.security.http.ssl.enabled=false
     ports:
       - ${KIBANA_PORT}:5601
     depends_on:
-      - elasticsearch
+      - bigdata.proj.elasticsearch
     networks:
-      - bigdata_proj_network
+      - bigdata.proj.network
 
 networks:
-  bigdata_proj_network:
+  bigdata.proj.network:
     driver: bridge
 
 volumes:
-  mongo_data:
-  mongo_logs:
-  jupyter_data:
-  elastic_data:
+  mongodata:
+  mongologs:
+  elasticdata:

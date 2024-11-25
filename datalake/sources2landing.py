@@ -471,7 +471,7 @@ def _clear_landing():
     print("{} - Clearing landing zone... Done.".format(datetime.now()))
 
 
-def get_sources():
+def load_landing():
     print("Fetching sources")
     print("================\n")
 

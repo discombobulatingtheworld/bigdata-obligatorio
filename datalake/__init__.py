@@ -35,8 +35,14 @@ def get_proxies():
 def get_is_debug():
     return 'DEBUG' in CONFIG and CONFIG['DEBUG'] == 'True'
 
-def get_download_sources_step_enable():
-    return 'DOWNLOAD_SOURCES_STEP_ENABLE' in CONFIG and CONFIG['DOWNLOAD_SOURCES_STEP_ENABLE'] == 'True'
+def get_load_landing_step_enable():
+    return 'LOAD_LANDING_STEP_ENABLE' in CONFIG and CONFIG['LOAD_LANDING_STEP_ENABLE'] == 'True'
+
+def get_load_raw_step_enable():
+    return 'LOAD_RAW_STEP_ENABLE' in CONFIG and CONFIG['LOAD_RAW_STEP_ENABLE'] == 'True'
+
+def get_load_refined_step_enable():
+    return 'LOAD_REFINED_STEP_ENABLE' in CONFIG and CONFIG['LOAD_REFINED_STEP_ENABLE'] == 'True'
 
 def get_worker_count():
     return int(CONFIG['WORKERS'])
@@ -51,6 +57,9 @@ def get_zone_dir(zone):
             return REFINED_DATA_DIR
         case _:
             return None
+        
+def get_encodings():
+    return ['utf-8', 'latin1', 'windows-1252']
 
 # Project Root and Data directory for all datasets
 PROJECT_ROOT_DIR = abspath(join(__file__, "..", ".."))
@@ -94,9 +103,11 @@ def get_dataset(area: str, name: str):
     return None
 
 def get_datasets(area_filter: str, type_filter: str):
+    datasets = []
     for dataset in DATASETS[area_filter]:
         if dataset['type'] == type_filter:
-            yield dataset
+            datasets.append(dataset)
+    return datasets
 
 def get_dataset_files(dataset):
     match dataset['type']:
