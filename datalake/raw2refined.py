@@ -360,12 +360,11 @@ def load_refined():
     mongo_uri = get_mongo_config()
     spark_session = SparkSession.builder \
         .appName("Raw to Refined") \
+        .master(f"spark://localhost:7077") \
         .config("spark.jars.packages",
                 "org.mongodb.spark:mongo-spark-connector_2.12:10.4.0,"
                 "org.elasticsearch:elasticsearch-spark-30_2.12:8.16.0") \
         .config("spark.mongodb.read.connection.uri", mongo_uri) \
-        .config("spark.executor.memory", "4g") \
-        .config("spark.driver.memory", "4g") \
         .config("spark.mongodb.read.database", "raw") \
         .config("es.nodes", get_elasticsearch_config()) \
         .config("es.nodes.wan.only", "true") \

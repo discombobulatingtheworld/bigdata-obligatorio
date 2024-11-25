@@ -416,15 +416,15 @@ DATASETS = {
     'refined': [
         {
             'name': 'steam_apps',
-            'elasticsearch_index': 'steam_apps_details'
+            'elasticsearch_index': 'steam_apps_details_pr'
         },
         {
             'name': 'price_history',
-            'elasticsearch_index': 'steam_apps_prices_history'
+            'elasticsearch_index': 'steam_apps_prices_history_pr'
         },
         {
             'name': 'players_count',
-            'elasticsearch_index': 'steam_apps_players_count_history'
+            'elasticsearch_index': 'steam_apps_players_count_history_pr'
         }
     ]
 }
