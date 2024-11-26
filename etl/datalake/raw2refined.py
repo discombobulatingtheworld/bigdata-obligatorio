@@ -323,7 +323,6 @@ def get_steam_apps_price_history(spark_session, dataset_info):
 
     df_steam_app.write.format("org.elasticsearch.spark.sql") \
         .option("es.resource", dataset_info['elasticsearch_index']) \
-        .option("es.mapping.id", "app_id") \
         .option("es.batch.size.entries", "1000") \
         .option("es.batch.size.bytes", "1mb") \
         .option("es.batch.write.retry.count", "5") \
@@ -359,7 +358,6 @@ def get_steam_apps_players_count_history(spark_session, dataset_info):
 
     df_steam_app.write.format("org.elasticsearch.spark.sql") \
         .option("es.resource", dataset_info['elasticsearch_index']) \
-        .option("es.mapping.id", "app_id") \
         .option("es.batch.size.entries", "1000") \
         .option("es.batch.size.bytes", "1mb") \
         .option("es.batch.write.retry.count", "5") \
