@@ -19,7 +19,7 @@ if (-not (Test-Path ".\program.py")) {
 
 # Run the Python script
 Write-Host "Starting Python program..."
-python ".\data_loading\program.py"
+python ".\program.py"
 
 # Exit the PowerShell script with the Python script's exit code
 exit $LASTEXITCODE

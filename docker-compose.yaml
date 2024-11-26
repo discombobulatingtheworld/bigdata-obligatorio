@@ -1,127 +1,277 @@
-name: bigdata.proj
+name: bigdataproj
 services:
-  bigdata.proj.mongo:
+  mongo:
     image: mongodb/mongodb-community-server:latest
-    container_name: bigdata.proj.mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
     env_file:
       - .env
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
+    hostname: ${MONGO_HOSTNAME}
     ports:
-      - ${MONGO_PORT}:27017
+      - ${MONGO_PORT_HOST}:27017
     networks:
-      - bigdata.proj.network
+      - network
     volumes:
       - mongodata:/data/db
       - mongologs:/var/log/mongodb
 
-  bigdata.proj.mongo.express:
+  mongo.express:
     image: library/mongo-express:latest
-    container_name: bigdata.proj.mongo.express
-    env_file:
-      - .env
     environment:
-      ME_CONFIG_MONGODB_SERVER: bigdata.proj.mongo
-      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USER}
-      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASS}
-      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USER}
-      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASS}
-    ports:
-      - ${MONGO_EXPRESS_PORT}:8081
-    depends_on:
-      - bigdata.proj.mongo
-    networks:
-      - bigdata.proj.network
-
-  bigdata.proj.jupyter:
-    image: jupyter/pyspark-notebook:latest
-    container_name: bigdata.proj.jupyter
+      ME_CONFIG_MONGODB_SERVER: ${ME_CONFIG_MONGODB_SERVER}
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${ME_CONFIG_MONGODB_ADMINUSERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${ME_CONFIG_MONGODB_ADMINPASSWORD}
+      ME_CONFIG_BASICAUTH_USERNAME: ${ME_CONFIG_BASICAUTH_USERNAME}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_CONFIG_BASICAUTH_PASSWORD}
     env_file:
       - .env
+    ports:
+      - ${ME_PORT_HOST}:8081
+    depends_on:
+      - mongo
+    networks:
+      - network
+
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
     environment:
       - JUPYTER_ENABLE_LAB=yes
       - JUPYTER_TOKEN=${JUPYTER_TOKEN}
+    env_file:
+      - .env
     ports:
-      - ${JUPYTER_PORT}:8888
+      - ${JUPYTER_PORT_HOST}:8888
     volumes:
-      - ${PWD}\data:/home/jovyan/work/data
-      - ${PWD}\datalake:/home/jovyan/work/datalake
-      - ${PWD}\program.py:/home/jovyan/work/program.py
+      - jupyterdata:/home/jovyan/work
     networks:
-      - bigdata.proj.network
+      - network
     command: >
       start-notebook.sh --NotebookApp.token='${JUPYTER_TOKEN}'
 
-  bigdata.proj.spark.master:
+  spark.master:
     image: bitnami/spark:latest
-    container_name: bigdata.proj.spark.master
     environment:
       SPARK_MODE: master
-      SPARK_RPC_AUTHENTICATION_ENABLED: no
-      SPARK_RPC_ENCRYPTION_ENABLED: no
-      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: no
-      SPARK_SSL_ENABLED: no
-      SPARK_MASTER_USERNAME: ${SPARK_MASTER_USERNAME}
-      SPARK_MASTER_PASSWORD: ${SPARK_MASTER_PASSWORD}
+      SPARK_MASTER_HOST: 0.0.0.0
+      SPARK_MASTER_PORT: ${SPARK_MASTER_PORT}
+      SPARK_MASTER_WEBUI_PORT: ${SPARK_MASTER_WEBUI_PORT}
+      #SPARK_RPC_AUTHENTICATION_ENABLED: no
+      #SPARK_RPC_ENCRYPTION_ENABLED: no
+      #SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: no
+      #SPARK_SSL_ENABLED: no
+      # SPARK_MASTER_USERNAME: ${SPARK_MASTER_USERNAME}
+      # SPARK_MASTER_PASSWORD: ${SPARK_MASTER_PASSWORD}
+    env_file:
+      - .env
+    hostname: ${SPARK_MASTER_HOSTNAME}
+    ports:
+      - ${SPARK_MASTER_WEBUI_PORT}:8080
+      - ${SPARK_MASTER_PORT_HOST}:7077
+    networks:
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  spark.worker.1:
+    image: bitnami/spark:latest
+    environment:
+      SPARK_MASTER_URL: spark://${SPARK_MASTER_HOSTNAME}:${SPARK_MASTER_PORT}
+      SPARK_WORKER_MEMORY: 4G
+      SPARK_WORKER_CORES: 2
+      SPARK_DRIVER_MEMORY: 4G
+      SPARK_EXECUTOR_MEMORY: 4G
+      SPARK_MODE: worker
     env_file:
       - .env
     ports:
-      - ${SPARK_PORT}:8080
+      - ${SPARK_WORKER1_WEBUI_PORT}:8080
+    depends_on:
+      - spark.master
     networks:
-      - bigdata.proj.network
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  bigdata.proj.spark.worker:
+  spark.worker.2:
     image: bitnami/spark:latest
     environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://bigdata.proj.spark.master:7077
-      - SPARK_WORKER_MEMORY=1G
-      - SPARK_WORKER_CORES=1
+      SPARK_MASTER_URL: spark://${SPARK_MASTER_HOSTNAME}:${SPARK_MASTER_PORT}
+      SPARK_WORKER_MEMORY: 4G
+      SPARK_WORKER_CORES: 2
+      SPARK_DRIVER_MEMORY: 4G
+      SPARK_EXECUTOR_MEMORY: 4G
+      SPARK_MODE: worker
     env_file:
       - .env
-    deploy:
-      replicas: ${SPARK_WORKER_COUNT}
+    ports:
+      - ${SPARK_WORKER2_WEBUI_PORT}:8080
     depends_on:
-      - bigdata.proj.spark.master
+      - spark.master
     networks:
-      - bigdata.proj.network
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  bigdata.proj.elasticsearch:
+  spark.worker.3:
+    image: bitnami/spark:latest
+    environment:
+      SPARK_MASTER_URL: spark://${SPARK_MASTER_HOSTNAME}:${SPARK_MASTER_PORT}
+      SPARK_WORKER_MEMORY: 4G
+      SPARK_WORKER_CORES: 2
+      SPARK_DRIVER_MEMORY: 4G
+      SPARK_EXECUTOR_MEMORY: 4G
+      SPARK_MODE: worker
+    env_file:
+      - .env
+    ports:
+      - ${SPARK_WORKER3_WEBUI_PORT}:8080
+    depends_on:
+      - spark.master
+    networks:
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  setup:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.16.0
-    container_name: bigdata.proj.elasticsearch
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+    networks:
+      - network
+    user: "0"
+    command: >
+      bash -c '
+        if [ x${ELASTICSEARCH_PASSWORD} == x ]; then
+          echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
+          exit 1;
+        elif [ x${KIBANA_PASSWORD} == x ]; then
+          echo "Set the KIBANA_PASSWORD environment variable in the .env file";
+          exit 1;
+        fi;
+        if [ ! -f config/certs/ca.zip ]; then
+          echo "Creating CA";
+          bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
+          unzip config/certs/ca.zip -d config/certs;
+        fi;
+        if [ ! -f config/certs/certs.zip ]; then
+          echo "Creating certs";
+          echo -ne \
+          "instances:\n"\
+          "  - name: ${ELASTICSEARCH_HOSTNAME}\n"\
+          "    dns:\n"\
+          "      - ${ELASTICSEARCH_HOSTNAME}\n"\
+          "      - localhost\n"\
+          "    ip:\n"\
+          "      - 127.0.0.1\n"\
+          "  - name: ${KIBANA_HOSTNAME}\n"\
+          "    dns:\n"\
+          "      - ${KIBANA_HOSTNAME}\n"\
+          "      - localhost\n"\
+          "    ip:\n"\
+          "      - 127.0.0.1\n"\
+          > config/certs/instances.yml;
+          bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
+          unzip config/certs/certs.zip -d config/certs;
+        fi;
+        echo "Setting file permissions"
+        chown -R root:root config/certs;
+        find . -type d -exec chmod 750 \{\} \;;
+        find . -type f -exec chmod 640 \{\} \;;
+        echo "Waiting for Elasticsearch availability";
+        until curl -s --cacert config/certs/ca/ca.crt https://${ELASTICSEARCH_HOSTNAME}:${ELASTICSEARCH_PORT} | grep -q "missing authentication credentials"; do sleep 30; done;
+        echo "Setting kibana_system password";
+        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTICSEARCH_PASSWORD}" -H "Content-Type: application/json" https://${ELASTICSEARCH_HOSTNAME}:${ELASTICSEARCH_PORT}/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
+        echo "All done!";
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f config/certs/${ELASTICSEARCH_HOSTNAME}/${ELASTICSEARCH_HOSTNAME}.crt ]"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.16.0
     environment:
       discovery.type: single-node
       ES_JAVA_OPTS: -Xms512m -Xmx512m
-      xpack.security.http.ssl.enabled: false
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTIC_PASSWORD: ${ELASTICSEARCH_PASSWORD}
+      bootstrap.memory_lock: true
+      xpack.security.enabled: true
+      xpack.security.http.ssl.enabled: true
+      xpack.security.http.ssl.key: certs/${ELASTICSEARCH_HOSTNAME}/${ELASTICSEARCH_HOSTNAME}.key
+      xpack.security.http.ssl.certificate: certs/${ELASTICSEARCH_HOSTNAME}/${ELASTICSEARCH_HOSTNAME}.crt
+      xpack.security.http.ssl.certificate_authorities: certs/ca/ca.crt
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.key: certs/${ELASTICSEARCH_HOSTNAME}/${ELASTICSEARCH_HOSTNAME}.key
+      xpack.security.transport.ssl.certificate: certs/${ELASTICSEARCH_HOSTNAME}/${ELASTICSEARCH_HOSTNAME}.crt
+      xpack.security.transport.ssl.certificate_authorities: certs/ca/ca.crt
+      xpack.security.transport.ssl.verification_mode: certificate
+      xpack.license.self_generated.type: ${ELASTICSERACH_LICENSE}
+      xpack.ml.use_auto_machine_memory_percent: true
+    env_file:
+      - .env
+    hostname: ${ELASTICSEARCH_HOSTNAME}
     ports:
-      - ${ELASTICSEARCH_PORT}:9200
+      - ${ELASTICSEARCH_PORT_HOST}:9200
+    depends_on:
+      setup:
+        condition: service_healthy
     volumes:
       - elasticdata:/usr/share/elasticsearch/data
+      - certs:/usr/share/elasticsearch/config/certs
     networks:
-      - bigdata.proj.network
+      - network
+    mem_limit: ${MEM_LIMIT}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s --cacert config/certs/ca/ca.crt https://localhost:9200 | grep -q 'missing authentication credentials'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
 
-  bigdata.proj.kibana:
+  kibana:
     image: docker.elastic.co/kibana/kibana:8.15.0
-    container_name: bigdata.proj.kibana
     environment:
-      - ELASTICSEARCH_HOSTS=http://bigdata.proj.elasticsearch:9200
-      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
-      - ELASTICSEARCH_USERNAME=${KIBANA_USERNAME}
-      - xpack.security.http.ssl.enabled=false
+      ELASTICSEARCH_HOSTS: https://${ELASTICSEARCH_HOSTNAME}:${ELASTICSEARCH_PORT}
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD}
+      xpack.security.http.ssl.enabled: true
+      ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: config/certs/ca/ca.crt
+      XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_XPACK_SECURITY_ENCRYPTIONKEY}
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY}
+      XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_XPACK_REPORTING_ENCRYPTIONKEY}
+    env_file:
+      - .env
+    hostname: ${KIBANA_HOSTNAME}
     ports:
-      - ${KIBANA_PORT}:5601
+      - ${KIBANA_PORT_HOST}:5601
     depends_on:
-      - bigdata.proj.elasticsearch
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - certs:/usr/share/kibana/config/certs
+      - kibanadata:/usr/share/kibana/data
     networks:
-      - bigdata.proj.network
+      - network
 
 networks:
-  bigdata.proj.network:
+  network:
     driver: bridge
 
 volumes:
   mongodata:
   mongologs:
+  jupyterdata:
   elasticdata:
+  kibanadata:
+  certs:
+  sparklogs:

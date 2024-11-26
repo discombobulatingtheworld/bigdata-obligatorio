@@ -5,7 +5,7 @@ from pyspark.sql.functions import explode, col, udf, when
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StringType, BooleanType, ArrayType, IntegerType, FloatType
 
-from datalake import get_mongo_config, get_elasticsearch_config, CONFIG, get_dataset
+from datalake import get_elasticsearch_config, CONFIG, get_dataset, get_spark_config, get_mongo_config_uri_raw, get_mongo_config
 
 def get_usd_conversion_rate():
     return {
@@ -357,20 +357,32 @@ def get_steam_apps_players_count_history(spark_session):
 def load_refined():
     print(f"--Initializing refine process...")
 
+    
+    master_url = get_spark_config()
     mongo_uri = get_mongo_config()
+    host_ip = 'host.docker.internal'
+    driver_port = '9999'
+
     spark_session = SparkSession.builder \
         .appName("Raw to Refined") \
+        .master(master_url) \
         .config("spark.jars.packages",
                 "org.mongodb.spark:mongo-spark-connector_2.12:10.4.0,"
                 "org.elasticsearch:elasticsearch-spark-30_2.12:8.16.0") \
-        .config("spark.mongodb.read.connection.uri", mongo_uri) \
-        .config("spark.executor.memory", "4g") \
+        .config("spark.driver.host", host_ip) \
+        .config("spark.driver.port", driver_port) \
+        .config("spark.driver.bindAddress", "0.0.0.0") \
         .config("spark.driver.memory", "4g") \
+        .config("spark.executor.memory", "4g") \
+        .config("spark.mongodb.read.connection.uri", mongo_uri) \
         .config("spark.mongodb.read.database", "raw") \
         .config("es.nodes", get_elasticsearch_config()) \
         .config("es.nodes.wan.only", "true") \
-        .config("es.net.http.auth.user", CONFIG['ELASTIC_USER']) \
-        .config("es.net.http.auth.pass", CONFIG['ELASTIC_PASSWORD']) \
+        .config("es.nodes.discovery", "false") \
+        .config("es.net.http.auth.user", CONFIG['ELASTICSEARCH_USERNAME']) \
+        .config("es.net.http.auth.pass", CONFIG['ELASTICSEARCH_PASSWORD']) \
+        .config("es.net.ssl", "true") \
+        .config("es.net.ssl.cert.allow.self.signed", "true") \
         .getOrCreate()
 
     get_steam_apps_details(spark_session)

@@ -1,5 +1,5 @@
 from os.path import abspath, join
-from os import listdir
+from os import listdir, environ
 from json import load
 from dotenv import dotenv_values
 
@@ -12,17 +12,29 @@ def load_json_dataset(file):
     
 def get_mongo_config():
     return 'mongodb://{}:{}@{}:{}/'.format(
-        CONFIG['MONGO_USER'],
-        CONFIG['MONGO_PASS'],
-        CONFIG['MONGO_HOST'],
-        CONFIG['MONGO_PORT']
+        CONFIG['MONGO_INITDB_ROOT_USERNAME'],
+        CONFIG['MONGO_INITDB_ROOT_PASSWORD'],
+        CONFIG['MONGO_HOSTNAME_HOST'],
+        CONFIG['MONGO_PORT_HOST']
+    )
+    
+def get_mongo_config_uri_raw():
+    return 'mongodb://{}:{}@{}:{}/'.format(
+        CONFIG['MONGO_INITDB_ROOT_USERNAME'],
+        CONFIG['MONGO_INITDB_ROOT_PASSWORD'],
+        CONFIG['MONGO_HOSTNAME'],
+        CONFIG['MONGO_PORT'],
+        CONFIG['MONGO_RAW_DB']
     )
 
 def get_elasticsearch_config():
-    return 'http://{}:{}'.format(
-        CONFIG['ELASTICSEARCH_HOST'],
-        CONFIG['ELASTICSEARCH_PORT'],
+    return 'https://{}:{}'.format(
+        CONFIG['ELASTICSEARCH_HOSTNAME_HOST'],
+        CONFIG['ELASTICSEARCH_PORT_HOST'],
     )
+
+def get_spark_config():
+    return 'spark://{}:{}'.format(CONFIG['SPARK_MASTER_HOSTNAME_HOST'], CONFIG['SPARK_MASTER_PORT_HOST'])
 
 def get_proxies():
     proxies = {}
