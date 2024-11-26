@@ -101,9 +101,9 @@ Write-Host "Starting setup..."
 Test-Python
 Test-Docker
 Test-EnvFile
-New-VirtualEnv
-Get-VirtualEnv
-Install-PythonPackages
+# New-VirtualEnv
+# Get-VirtualEnv
+# Install-PythonPackages
 Start-DockerContainers
 
 Write-Host "Setup completed successfully."

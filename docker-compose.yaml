@@ -11,7 +11,7 @@ services:
     ports:
       - ${MONGO_PORT_HOST}:27017
     networks:
-      - network
+      - netw
     volumes:
       - mongodata:/data/db
       - mongologs:/var/log/mongodb
@@ -31,26 +31,29 @@ services:
     depends_on:
       - mongo
     networks:
-      - network
+      - netw
 
   jupyter:
     image: jupyter/pyspark-notebook:latest
     environment:
       - JUPYTER_ENABLE_LAB=yes
-      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN_PASS}
     env_file:
       - .env
+    hostname: ${JUPYTER_HOSTNAME}
     ports:
       - ${JUPYTER_PORT_HOST}:8888
     volumes:
-      - jupyterdata:/home/jovyan/work
+      - .\etl:/home/jovyan/work
+      - .\data:/home/jovyan/work/data
+      - .\.env:/home/jovyan/work/.env:ro
     networks:
-      - network
+      - netw
     command: >
-      start-notebook.sh --NotebookApp.token='${JUPYTER_TOKEN}'
+      start-notebook.sh --NotebookApp.token='${JUPYTER_TOKEN_PASS}'
 
   spark.master:
-    image: bitnami/spark:latest
+    image: bitnami/spark:3.5.0
     environment:
       SPARK_MODE: master
       SPARK_MASTER_HOST: 0.0.0.0
@@ -68,13 +71,18 @@ services:
     ports:
       - ${SPARK_MASTER_WEBUI_PORT}:8080
       - ${SPARK_MASTER_PORT_HOST}:7077
+    volumes:
+      - .\etl\datalake:/opt/bitnami/spark/python/datalake
+      - .\.env:/opt/bitnami/spark/python/.env:ro
     networks:
-      - network
+      - netw
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   spark.worker.1:
-    image: bitnami/spark:latest
+    build:
+      context: .
+      dockerfile: .\infra\spark\Dockerfile
     environment:
       SPARK_MASTER_URL: spark://${SPARK_MASTER_HOSTNAME}:${SPARK_MASTER_PORT}
       SPARK_WORKER_MEMORY: 4G
@@ -88,13 +96,18 @@ services:
       - ${SPARK_WORKER1_WEBUI_PORT}:8080
     depends_on:
       - spark.master
+    volumes:
+      - .\etl\datalake:/opt/bitnami/spark/python/datalake
+      - .\.env:/opt/bitnami/spark/python/.env:ro
     networks:
-      - network
+      - netw
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   spark.worker.2:
-    image: bitnami/spark:latest
+    build:
+      context: .
+      dockerfile: .\infra\spark\Dockerfile
     environment:
       SPARK_MASTER_URL: spark://${SPARK_MASTER_HOSTNAME}:${SPARK_MASTER_PORT}
       SPARK_WORKER_MEMORY: 4G
@@ -108,13 +121,18 @@ services:
       - ${SPARK_WORKER2_WEBUI_PORT}:8080
     depends_on:
       - spark.master
+    volumes:
+      - .\etl\datalake:/opt/bitnami/spark/python/datalake
+      - .\.env:/opt/bitnami/spark/python/.env:ro
     networks:
-      - network
+      - netw
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   spark.worker.3:
-    image: bitnami/spark:latest
+    build:
+      context: .
+      dockerfile: .\infra\spark\Dockerfile
     environment:
       SPARK_MASTER_URL: spark://${SPARK_MASTER_HOSTNAME}:${SPARK_MASTER_PORT}
       SPARK_WORKER_MEMORY: 4G
@@ -128,8 +146,11 @@ services:
       - ${SPARK_WORKER3_WEBUI_PORT}:8080
     depends_on:
       - spark.master
+    volumes:
+      - .\etl\datalake:/opt/bitnami/spark/python/datalake
+      - .\.env:/opt/bitnami/spark/python/.env:ro
     networks:
-      - network
+      - netw
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -138,7 +159,7 @@ services:
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
     networks:
-      - network
+      - netw
     user: "0"
     command: >
       bash -c '
@@ -222,7 +243,7 @@ services:
       - elasticdata:/usr/share/elasticsearch/data
       - certs:/usr/share/elasticsearch/config/certs
     networks:
-      - network
+      - netw
     mem_limit: ${MEM_LIMIT}
     ulimits:
       memlock:
@@ -261,17 +282,15 @@ services:
       - certs:/usr/share/kibana/config/certs
       - kibanadata:/usr/share/kibana/data
     networks:
-      - network
+      - netw
 
 networks:
-  network:
+  netw:
     driver: bridge
 
 volumes:
   mongodata:
   mongologs:
-  jupyterdata:
   elasticdata:
   kibanadata:
   certs:
-  sparklogs:

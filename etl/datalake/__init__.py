@@ -1,9 +1,16 @@
-from os.path import abspath, join
-from os import listdir, environ
+from os.path import abspath, join, isdir, dirname
+from os import listdir
 from json import load
 from dotenv import dotenv_values
 
-CONFIG = dotenv_values(".env")
+if isdir(abspath('/opt/bitnami/spark/python/')):
+    ENV_PATH = '/opt/bitnami/spark/python/.env'
+    print('Using Bitnami Spark')
+else:
+    ENV_PATH = '/home/jovyan/work/.env'
+    print('Using Local Spark')
+
+CONFIG = dotenv_values(ENV_PATH)
 
 # Common functions
 def load_json_dataset(file):
@@ -14,27 +21,33 @@ def get_mongo_config():
     return 'mongodb://{}:{}@{}:{}/'.format(
         CONFIG['MONGO_INITDB_ROOT_USERNAME'],
         CONFIG['MONGO_INITDB_ROOT_PASSWORD'],
-        CONFIG['MONGO_HOSTNAME_HOST'],
-        CONFIG['MONGO_PORT_HOST']
+        CONFIG['MONGO_HOSTNAME'],
+        CONFIG['MONGO_PORT']
     )
     
 def get_mongo_config_uri_raw():
     return 'mongodb://{}:{}@{}:{}/'.format(
         CONFIG['MONGO_INITDB_ROOT_USERNAME'],
         CONFIG['MONGO_INITDB_ROOT_PASSWORD'],
-        CONFIG['MONGO_HOSTNAME'],
-        CONFIG['MONGO_PORT'],
+        CONFIG['MONGO_HOSTNAME_HOST'],
+        CONFIG['MONGO_PORT_HOST'],
         CONFIG['MONGO_RAW_DB']
     )
 
 def get_elasticsearch_config():
     return 'https://{}:{}'.format(
-        CONFIG['ELASTICSEARCH_HOSTNAME_HOST'],
-        CONFIG['ELASTICSEARCH_PORT_HOST'],
+        CONFIG['ELASTICSEARCH_HOSTNAME'],
+        CONFIG['ELASTICSEARCH_PORT'],
     )
 
+def get_jupyter_config():
+    return CONFIG['JUPYTER_HOSTNAME'], CONFIG['SPARK_DRIVER_PORT']
+
+def get_elastic_auth():
+    return CONFIG['ELASTICSEARCH_USERNAME'], CONFIG['ELASTICSEARCH_PASSWORD']
+
 def get_spark_config():
-    return 'spark://{}:{}'.format(CONFIG['SPARK_MASTER_HOSTNAME_HOST'], CONFIG['SPARK_MASTER_PORT_HOST'])
+    return 'spark://{}:{}'.format(CONFIG['SPARK_MASTER_HOSTNAME'], CONFIG['SPARK_MASTER_PORT'])
 
 def get_proxies():
     proxies = {}
