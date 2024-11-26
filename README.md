@@ -43,35 +43,25 @@ Copie el archivo `.env.sample` y renombrarlo a `.env`. Modifique las variables d
 git clone https://github.com/discombobulatingtheworld/bigdata-obligatorio.git
 ```
 
-2. Crear un entorno virtual.
+2. Copiar el archivo `.env.example` y renombrarlo a `.env`. Modificar las variables de entorno según sea necesario.
 
-```powershell
-python -m venv .venv
-```
+3. Levantar el stack de Docker:
+    - En Windows: ejecutar `init.bat`.
+    - En Linux: `docker-compose up -d`.
 
-3. Activar el entorno virtual.
+4. Entrar a la interfaz web de Jupyter en `http://localhost:8888`.
 
-```powershell
-.\.venv\Scripts\Activate
-```
+5. Instalar las dependencias de Python.
 
-4. Instalar las dependencias.
-
-```powershell
-pip install -r requirements.txt
-```
-
-7. Levantar los contenedores de Docker.
-
-```powershell
-docker-compose up -d
+```bash
+python -m pip install -r requirements.txt
 ```
 
 ### Ejecución
 
-Ejecutar con Python el script `program.py`.
+Ejecutar con Python el script `program.py` dentro de jupyter.
 
-```powershell
+```bash
 python program.py
 ```
 
