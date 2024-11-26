@@ -1,9 +1,16 @@
-from os.path import abspath, join
+from os.path import abspath, join, isdir, dirname
 from os import listdir
 from json import load
 from dotenv import dotenv_values
 
-CONFIG = dotenv_values(".env")
+if isdir(abspath('/opt/bitnami/spark/python/')):
+    ENV_PATH = '/opt/bitnami/spark/python/.env'
+    print('Using Bitnami Spark')
+else:
+    ENV_PATH = '/home/jovyan/work/.env'
+    print('Using Local Spark')
+
+CONFIG = dotenv_values(ENV_PATH)
 
 # Common functions
 def load_json_dataset(file):
@@ -12,17 +19,35 @@ def load_json_dataset(file):
     
 def get_mongo_config():
     return 'mongodb://{}:{}@{}:{}/'.format(
-        CONFIG['MONGO_USER'],
-        CONFIG['MONGO_PASS'],
-        CONFIG['MONGO_HOST'],
+        CONFIG['MONGO_INITDB_ROOT_USERNAME'],
+        CONFIG['MONGO_INITDB_ROOT_PASSWORD'],
+        CONFIG['MONGO_HOSTNAME'],
         CONFIG['MONGO_PORT']
+    )
+    
+def get_mongo_config_uri_raw():
+    return 'mongodb://{}:{}@{}:{}/'.format(
+        CONFIG['MONGO_INITDB_ROOT_USERNAME'],
+        CONFIG['MONGO_INITDB_ROOT_PASSWORD'],
+        CONFIG['MONGO_HOSTNAME_HOST'],
+        CONFIG['MONGO_PORT_HOST'],
+        CONFIG['MONGO_RAW_DB']
     )
 
 def get_elasticsearch_config():
-    return 'http://{}:{}'.format(
-        CONFIG['ELASTICSEARCH_HOST'],
+    return 'https://{}:{}'.format(
+        CONFIG['ELASTICSEARCH_HOSTNAME'],
         CONFIG['ELASTICSEARCH_PORT'],
     )
+
+def get_jupyter_config():
+    return CONFIG['JUPYTER_HOSTNAME'], CONFIG['SPARK_DRIVER_PORT']
+
+def get_elastic_auth():
+    return CONFIG['ELASTICSEARCH_USERNAME'], CONFIG['ELASTICSEARCH_PASSWORD']
+
+def get_spark_config():
+    return 'spark://{}:{}'.format(CONFIG['SPARK_MASTER_HOSTNAME'], CONFIG['SPARK_MASTER_PORT'])
 
 def get_proxies():
     proxies = {}
@@ -35,8 +60,14 @@ def get_proxies():
 def get_is_debug():
     return 'DEBUG' in CONFIG and CONFIG['DEBUG'] == 'True'
 
-def get_download_sources_step_enable():
-    return 'DOWNLOAD_SOURCES_STEP_ENABLE' in CONFIG and CONFIG['DOWNLOAD_SOURCES_STEP_ENABLE'] == 'True'
+def get_load_landing_step_enable():
+    return 'LOAD_LANDING_STEP_ENABLE' in CONFIG and CONFIG['LOAD_LANDING_STEP_ENABLE'] == 'True'
+
+def get_load_raw_step_enable():
+    return 'LOAD_RAW_STEP_ENABLE' in CONFIG and CONFIG['LOAD_RAW_STEP_ENABLE'] == 'True'
+
+def get_load_refined_step_enable():
+    return 'LOAD_REFINED_STEP_ENABLE' in CONFIG and CONFIG['LOAD_REFINED_STEP_ENABLE'] == 'True'
 
 def get_worker_count():
     return int(CONFIG['WORKERS'])
@@ -51,6 +82,9 @@ def get_zone_dir(zone):
             return REFINED_DATA_DIR
         case _:
             return None
+        
+def get_encodings():
+    return ['utf-8', 'latin1', 'windows-1252']
 
 # Project Root and Data directory for all datasets
 PROJECT_ROOT_DIR = abspath(join(__file__, "..", ".."))
@@ -94,9 +128,11 @@ def get_dataset(area: str, name: str):
     return None
 
 def get_datasets(area_filter: str, type_filter: str):
+    datasets = []
     for dataset in DATASETS[area_filter]:
         if dataset['type'] == type_filter:
-            yield dataset
+            datasets.append(dataset)
+    return datasets
 
 def get_dataset_files(dataset):
     match dataset['type']:

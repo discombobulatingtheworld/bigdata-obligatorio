@@ -1,11 +1,16 @@
 import re
 from datetime import datetime
-
 from pyspark.sql.functions import explode, col, udf, when
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StringType, BooleanType, ArrayType, IntegerType, FloatType
 
-from datalake import get_mongo_config, get_elasticsearch_config, CONFIG, get_dataset
+from datalake import \
+    get_dataset, \
+    get_elasticsearch_config, \
+    get_spark_config, \
+    get_jupyter_config, \
+    get_mongo_config, \
+    get_elastic_auth
 
 def get_usd_conversion_rate():
     return {
@@ -249,9 +254,7 @@ def get_valid_steam_api_data(spark_session):
     steam_api_details_exploded = steam_api_details_exploded.filter((col("steam_api.success") == True))
     return steam_api_details_exploded
 
-def get_steam_apps_details(spark_session):
-    dataset_info = get_dataset('refined', 'steam_apps')
-
+def get_steam_apps_details(spark_session, dataset_info):
     print(f"--Starting {dataset_info['elasticsearch_index']} elastic index population")
 
     steam_api_details = get_valid_steam_api_data(spark_session)
@@ -293,15 +296,18 @@ def get_steam_apps_details(spark_session):
 
     print(f"--Finalized {dataset_info['elasticsearch_index']} elastic index population")
 
-def get_steam_apps_price_history(spark_session):
-    dataset_info = get_dataset('refined', 'price_history')
-
+def get_steam_apps_price_history(spark_session, dataset_info):
     print(f"--Starting {dataset_info['elasticsearch_index']} elastic index population")
 
     steam_api_details = get_valid_steam_api_data(spark_session)
     mendeley_price_details = spark_session.read.format("mongodb").option("collection", "mendeley_price").load()
     mendeley_price_details_data = mendeley_price_details.select(col("data").alias("mendeley_price_data"))
-    steam_apps_price_details = steam_api_details.join(mendeley_price_details_data, steam_api_details["app_id"] == mendeley_price_details_data["mendeley_price_data.appid"], "inner")
+    
+    steam_apps_price_details = steam_api_details.join(
+        mendeley_price_details_data, 
+        steam_api_details["app_id"] == mendeley_price_details_data["mendeley_price_data.appid"], 
+        "inner"
+        )
 
     df_steam_app = steam_apps_price_details.select(
         col("steam_api.data.name").alias("name"),
@@ -313,28 +319,33 @@ def get_steam_apps_price_history(spark_session):
         col("mendeley_price_data.data.Initialprice").alias("initial_day_price"),
         col("mendeley_price_data.data.Finalprice").alias("final_day_price"),
         col("mendeley_price_data.data.Discount").alias("discount_percentage"),
-    )
+    ).repartition(10)
 
     df_steam_app.write.format("org.elasticsearch.spark.sql") \
         .option("es.resource", dataset_info['elasticsearch_index']) \
+        .option("es.batch.size.entries", "1000") \
+        .option("es.batch.size.bytes", "1mb") \
+        .option("es.batch.write.retry.count", "5") \
+        .option("es.batch.write.retry.wait", "30s") \
         .mode("overwrite") \
         .save()
 
     print(f"--Finalized {dataset_info['elasticsearch_index']} elastic index population")
 
 
-def get_steam_apps_players_count_history(spark_session):
-    dataset_info = get_dataset('refined', 'players_count')
-
+def get_steam_apps_players_count_history(spark_session, dataset_info):
     print(f"--Starting {dataset_info['elasticsearch_index']} elastic index population")
 
     steam_api_details = get_valid_steam_api_data(spark_session)
     mendeley_players_details = spark_session.read.format("mongodb").option("collection", "mendeley_playercount").load()
     mendeley_players_details_data = mendeley_players_details.select(col("data").alias("mendeley_playercount_data"))
 
-    steam_apps_price_details = steam_api_details.join(mendeley_players_details_data,
-                                                      steam_api_details["app_id"] == mendeley_players_details_data[
-                                                          "mendeley_playercount_data.appid"], "inner")
+    steam_apps_price_details = steam_api_details.join(
+        mendeley_players_details_data,
+        steam_api_details["app_id"] == mendeley_players_details_data["mendeley_playercount_data.appid"], 
+        "inner"
+        ).repartition(10)
+    
     df_steam_app = steam_apps_price_details.select(
         col("steam_api.data.name").alias("name"),
         col("steam_api.data.type").alias("type"),
@@ -347,6 +358,10 @@ def get_steam_apps_players_count_history(spark_session):
 
     df_steam_app.write.format("org.elasticsearch.spark.sql") \
         .option("es.resource", dataset_info['elasticsearch_index']) \
+        .option("es.batch.size.entries", "1000") \
+        .option("es.batch.size.bytes", "1mb") \
+        .option("es.batch.write.retry.count", "5") \
+        .option("es.batch.write.retry.wait", "30s") \
         .mode("overwrite") \
         .save()
 
@@ -357,22 +372,38 @@ def get_steam_apps_players_count_history(spark_session):
 def load_refined():
     print(f"--Initializing refine process...")
 
+
+    dataset_info_apps = get_dataset('refined', 'steam_apps')
+    dataset_info_pcount = get_dataset('refined', 'players_count')
+    dataset_info_phist = get_dataset('refined', 'price_history')
+    master_url = get_spark_config()
     mongo_uri = get_mongo_config()
+    driver_host, driver_port = get_jupyter_config()
+    elastic_config = get_elasticsearch_config()
+    elastic_user, elastic_password = get_elastic_auth()
+
     spark_session = SparkSession.builder \
         .appName("Raw to Refined") \
+        .master(master_url) \
         .config("spark.jars.packages",
                 "org.mongodb.spark:mongo-spark-connector_2.12:10.4.0,"
                 "org.elasticsearch:elasticsearch-spark-30_2.12:8.16.0") \
-        .config("spark.mongodb.read.connection.uri", mongo_uri) \
-        .config("spark.executor.memory", "4g") \
+        .config("spark.driver.host", driver_host) \
+        .config("spark.driver.port", driver_port) \
+        .config("spark.driver.bindAddress", "0.0.0.0") \
         .config("spark.driver.memory", "4g") \
+        .config("spark.executor.memory", "4g") \
+        .config("spark.mongodb.read.connection.uri", mongo_uri) \
         .config("spark.mongodb.read.database", "raw") \
-        .config("es.nodes", get_elasticsearch_config()) \
+        .config("es.nodes", elastic_config) \
         .config("es.nodes.wan.only", "true") \
-        .config("es.net.http.auth.user", CONFIG['ELASTIC_USER']) \
-        .config("es.net.http.auth.pass", CONFIG['ELASTIC_PASSWORD']) \
+        .config("es.nodes.discovery", "false") \
+        .config("es.net.http.auth.user", elastic_user) \
+        .config("es.net.http.auth.pass", elastic_password) \
+        .config("es.net.ssl", "true") \
+        .config("es.net.ssl.cert.allow.self.signed", "true") \
         .getOrCreate()
 
-    get_steam_apps_details(spark_session)
-    get_steam_apps_price_history(spark_session)
-    get_steam_apps_players_count_history(spark_session)
+    get_steam_apps_details(spark_session, dataset_info_apps)
+    get_steam_apps_price_history(spark_session, dataset_info_pcount)
+    get_steam_apps_players_count_history(spark_session, dataset_info_phist)
